@@ -1,0 +1,38 @@
+class PTMachine
+  attr_reader :name, :box, :ostype
+  def initialize(name, box, ostype)
+    @name = name
+    @box = box  # https://app.vagrantup.com/boxes/search
+    @ostype = ostype
+  end
+end
+
+PTMACHINES = [
+  PTMachine.new("jessie", "debian/jessie64", "debian-family"),
+  PTMachine.new("stretch", "debian/stretch64", "debian-family"),
+  PTMachine.new("trusty", "ubuntu/trusty64", "debian-family"),
+  PTMachine.new("xenial", "ubuntu/xenial64", "debian-family"),
+  PTMachine.new("arch", "archlinux/archlinux", nil),
+  PTMachine.new("freebsd11.1", "freebsd/FreeBSD-11.1-STABLE", nil),
+  # Bento boxes maintained by Chef and officially supported by Hashicorp
+  PTMachine.new("bento-centos7", "bento/centos-7", nil),
+  PTMachine.new("bento-debian9.1", "bento/debian-9.1", "debian-family"),
+  PTMachine.new("bento-fedora26", "bento/fedora-26", nil),
+  PTMachine.new("bento-freebsd11", "bento/freebsd-11", nil),
+  #
+  PTMachine.new("laravel-homestead", "laravel/homestead", nil),
+    # popular Ubuntu-derived dev image; already updated, do not add our stuff by default [might change]
+    # Intended to be used with custom Vagrantfile setup, per ~/src/virtualization/laravel-homestead
+]
+
+Vagrant.configure(2) do |config|
+  PTMACHINES.each do |ptb|
+    config.vm.define ptb.name, autostart: false do |node|
+      node.vm.box = ptb.box
+
+      unless ptb.ostype.nil?
+        config.vm.provision "shell", path: "#{ENV['HOME']}/etc/vagrant/ptlocal.#{ptb.ostype}.sh", name: "pennocktech-local"
+      end
+    end
+  end
+end
