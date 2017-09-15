@@ -16,11 +16,18 @@ dpkg-reconfigure tzdata
 unset TZ
 
 trace "apt proxy, https, key, and PT repo"
-cat > /etc/apt/apt.conf.d/70proxy <<'EOPROXY'
+pf=/etc/apt/apt.conf.d/70proxy
+rm -v $pf
+touch $pf
+# this uses a `not_at_home` command I have elsewhere:
+[ -f /tmp/am_at_home ] && cat >> $pf <<'EOPROXY'
 Acquire::http::Proxy "http://cheddar.lan:3142";
+EOPROXY
+cat >> $pf <<'EOPROXY'
 Acquire::https::Proxy::apt.orchard.lan "DIRECT";
 Acquire::https::Proxy::public-packages.pennock.tech "DIRECT";
 EOPROXY
+unset pf
 
 pt_apt_get install apt-transport-https
 

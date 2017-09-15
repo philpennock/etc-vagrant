@@ -1,34 +1,99 @@
 class PTMachine
-  attr_reader :name, :box, :ostype
+  attr_reader :name, :box, :ostype, :base_mac, :boot_timeout, :shell, :synctype, :vbmodifylist
   def initialize(name, box, ostype)
     @name = name
     @box = box  # https://app.vagrantup.com/boxes/search
     @ostype = ostype
   end
+  def with(var, value)
+    self.instance_variable_set(var, value)
+    return self
+  end
 end
 
+# Most modern Vagrant images are defined with an embedded Vagrantfile, which
+# sets a base_mac (from Packer); absence of this is an error even though back
+# in 2014 mitchellh said they're not sure it's even needed any more.
+#
+# The initialize method takes the 3 most common attributes, use .with() to add
+# anything else needed.
+#
+# MAC addresses are random, so far seen all 080027 OUI, even though that's
+# "PCS Systemtechnik GmbH" per the IEEE registry (<http://standards-oui.ieee.org/oui.txt>).
+# We stick to the pattern.
+#
+# Vagrant defaults to `bash -l` for the commands it runs itself (not `vagrant ssh`)
+# so OSes which lack bash by default should override shell.
+
 PTMACHINES = [
+  # Project-maintained (I think) boxes
   PTMachine.new("jessie", "debian/jessie64", "debian-family"),
   PTMachine.new("stretch", "debian/stretch64", "debian-family"),
   PTMachine.new("trusty", "ubuntu/trusty64", "debian-family"),
   PTMachine.new("xenial", "ubuntu/xenial64", "debian-family"),
   PTMachine.new("arch", "archlinux/archlinux", nil),
-  PTMachine.new("freebsd11.1", "freebsd/FreeBSD-11.1-STABLE", nil),
+  PTMachine.new("netbsd7", "netbsd/NetBSD-7.0", nil),
+
   # Bento boxes maintained by Chef and officially supported by Hashicorp
   PTMachine.new("bento-centos7", "bento/centos-7", nil),
   PTMachine.new("bento-debian9.1", "bento/debian-9.1", "debian-family"),
   PTMachine.new("bento-fedora26", "bento/fedora-26", nil),
   PTMachine.new("bento-freebsd11", "bento/freebsd-11", nil),
-  #
+
   PTMachine.new("laravel-homestead", "laravel/homestead", nil),
     # popular Ubuntu-derived dev image; already updated, do not add our stuff by default [might change]
     # Intended to be used with custom Vagrantfile setup, per ~/src/virtualization/laravel-homestead
+
+  # FreeBSD: <https://forums.freebsd.org/threads/52717/>
+  # They do package and OS update on boot, before SSH is available?
+  # Note: at present time, sudo is segfaulting
+  PTMachine.new("freebsd11.1", "freebsd/FreeBSD-11.1-STABLE", nil)
+    .with(:@base_mac, "08002736F355").with(:@shell, "sh").with(:@synctype, "rsync")
+    .with(:@vbmodifylist, [
+      ["--memory", "1024"],
+      ["--cpus", "1"],
+      ["--hwvirtex", "on"],
+      ["--audio", "none"],
+      ["--nictype1", "virtio"],
+      ["--nictype2", "virtio"],
+    ]),
 ]
 
 Vagrant.configure(2) do |config|
   PTMACHINES.each do |ptb|
     config.vm.define ptb.name, autostart: false do |node|
       node.vm.box = ptb.box
+      unless ptb.base_mac.nil?
+        node.vm.base_mac = ptb.base_mac
+      end
+      unless ptb.boot_timeout.nil?
+        node.vm.boot_timeout = ptb.boot_timeout
+      end
+      # my ruby meta-programming is near non-existent, or that would already be a loop using a string attr name
+      unless ptb.shell.nil?
+        node.ssh.shell = ptb.shell
+      end
+      unless ptb.synctype.nil?
+        case ptb.synctype
+        when "disabled", "disable", "off", "no", "false"
+          node.vm.synced_folder ".", "/vagrant", disabled: true
+        else
+          node.vm.synced_folder ".", "/vagrant", type: ptb.synctype
+        end
+      end
+      unless ptb.vbmodifylist.nil?
+        config.vm.provider :virtualbox do |vb|
+          ptb.vbmodifylist.each do |item, value|
+            vb.customize ["modifyvm", :id, item, value]
+          end
+        end
+      end
+
+      if system("not_at_home")
+        config.vm.provision "shell", inline: "touch /tmp/am_not_at_home", name: "Not At Home"
+      else
+        config.vm.provision "shell", inline: "touch /tmp/am_at_home", name: "At Home"
+      end
 
       unless ptb.ostype.nil?
         config.vm.provision "shell", path: "#{ENV['HOME']}/etc/vagrant/ptlocal.#{ptb.ostype}.sh", name: "pennocktech-local"
