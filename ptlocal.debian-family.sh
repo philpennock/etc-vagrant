@@ -17,7 +17,7 @@ unset TZ
 
 trace "apt proxy, https, key, and PT repo"
 pf=/etc/apt/apt.conf.d/70proxy
-rm -v $pf
+rm -vf $pf
 touch $pf
 # this uses a `not_at_home` command I have elsewhere:
 [ -f /tmp/am_at_home ] && cat >> $pf <<'EOPROXY'
