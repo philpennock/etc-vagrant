@@ -3,7 +3,7 @@ def private_network_ip(index)
 end
 
 class PTMachine
-  attr_reader :name, :box, :ostype, :base_mac, :boot_timeout, :shell, :synctype, :vbmodifylist, :syncargs
+  attr_reader :name, :box, :ostype, :base_mac, :boot_timeout, :shell, :synctype, :vbmodifylist, :syncargs, :typed_syncargs
   def initialize(name, box, ostype)
     @name = name
     @box = box  # https://app.vagrantup.com/boxes/search
@@ -22,13 +22,15 @@ class PTMachine
       return { disabled: true }
     end
     a = { type: @synctype }
-    if @syncargs.nil?
+    if @syncargs.nil? and (@typed_syncargs.nil? or not @typed_syncargs.has_key?(@synctype))
+      # Here, our default options on a per-sync basis
       case @synctype
       when "nfs"
         a.merge!({nfs_udp: false})
       end
     else
-      a.merge! @syncargs
+      a.merge! @syncargs unless @syncargs.nil?
+      a.merge! @typed_syncargs[@synctype] if @typed_syncargs.has_key?(@synctype)
     end
     return a
   end
@@ -108,7 +110,11 @@ def add_packaging_cache(ptb, node)
   end
   case ptb.ostype
   when "debian-family"
-    node.vm.synced_folder local_apt_cache(node.vm.box), "/var/cache/apt/archives/", **ptb.mount_args
+    node.vm.synced_folder local_apt_cache(node.vm.box), "/var/cache/apt/archives/",
+      typed_syncargs: { nfs: {
+        bsd__nfs_options: ["mapall=#{Process.uid}"],
+      } },
+      **ptb.mount_args
   end
 end
 
@@ -149,6 +155,10 @@ Vagrant.configure(2) do |config|
 
       unless ptb.ostype.nil?
         config.vm.provision "shell", path: "#{ENV['HOME']}/etc/vagrant/ptlocal.#{ptb.ostype}.sh", name: "pennocktech-local"
+      end
+
+      %w(.vimrc .zshrc).each do |fn|
+        config.vm.provision "file", source: "~/.personal/reduced/#{fn}", destination: fn
       end
 
     end # config.vm.define using node as iteration variable
