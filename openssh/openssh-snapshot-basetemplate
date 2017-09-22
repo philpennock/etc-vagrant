@@ -15,6 +15,10 @@ elif [ -f /etc/yum.conf ] || [ -d /etc/yum ]; then
 	yum -y groupinstall 'Development Tools'
 	yum-builddep -y openssh
 	)
+elif [ -f /etc/pacman.conf ]; then
+	(
+	pacman --noconfirm -Sy base-devel
+	)
 fi
 
 # netbsd doesn't support -v:

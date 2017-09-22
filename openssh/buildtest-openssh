@@ -31,8 +31,7 @@ export PT_BUILD_ASSETS="$HOME/Downloads/$SNAPBALL"
 export PT_BUILD_SCRIPTS="$this_dir_shortname/$generated_build_script"
 
 cd "$script_dir"
-[[ -f "./$generated_build_script" ]] || \
-  sed -e 's/XXX_SNAPBALL_XXX/'"$SNAPBALL"'/g' < openssh-snapshot-basetemplate > "./$generated_build_script"
+sed -e 's/XXX_SNAPBALL_XXX/'"$SNAPBALL"'/g' < openssh-snapshot-basetemplate > "./$generated_build_script"
 chmod 0755 "./$generated_build_script"
 
 cd "$WORKDIR"
