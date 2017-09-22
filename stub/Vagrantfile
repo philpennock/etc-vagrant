@@ -1,9 +1,20 @@
+# We have a list of boxes, we assign IPs and port ranges by the list index
 def private_network_ip(index)
   return "192.168.239." + (10 + index).to_s
 end
+def index_to_usable_port_range(index)
+  base = 2300
+  perbox = 20
+  return ((base+perbox*index)..(base+perbox*(index+1)))
+end
+
+HOME_PROXY = 'http://192.168.120.21:3128/'
 
 class PTMachine
-  attr_reader :name, :box, :ostype, :base_mac, :boot_timeout, :shell, :synctype, :vbmodifylist, :syncargs, :typed_syncargs
+  attr_reader :name, :box, :ostype,
+    :base_mac, :boot_timeout, :shell, :vbmodifylist,
+    :synctype, :syncargs, :typed_syncargs,
+    :ssh_username
   def initialize(name, box, ostype)
     @name = name
     @box = box  # https://app.vagrantup.com/boxes/search
@@ -52,18 +63,18 @@ end
 
 PTMACHINES = [
   # Project-maintained (I think) boxes
-  PTMachine.new("jessie", "debian/jessie64", "debian-family"),
+  PTMachine.new("jessie", "debian/jessie64", "debian-family").with(:@synctype, "nfs"),
   PTMachine.new("stretch", "debian/stretch64", "debian-family").with(:@synctype, "nfs"),  # vboxsf/etc removed, non-free
   PTMachine.new("trusty", "ubuntu/trusty64", "debian-family"),
-  PTMachine.new("xenial", "ubuntu/xenial64", "debian-family"),
+  PTMachine.new("xenial", "ubuntu/xenial64", "debian-family").with(:@ssh_username, "ubuntu"),
   PTMachine.new("arch", "archlinux/archlinux", nil),
   PTMachine.new("netbsd7", "netbsd/NetBSD-7.0", nil),
 
   # Bento boxes maintained by Chef and officially supported by Hashicorp
-  PTMachine.new("bento-centos7", "bento/centos-7", nil),
+  PTMachine.new("bento-centos7", "bento/centos-7", "rh-family"),
   PTMachine.new("bento-debian9.1", "bento/debian-9.1", "debian-family"),
-  PTMachine.new("bento-fedora26", "bento/fedora-26", nil),
-  PTMachine.new("bento-freebsd11", "bento/freebsd-11", nil),
+  PTMachine.new("bento-fedora26", "bento/fedora-26", "rh-family"),
+  PTMachine.new("bento-freebsd11", "bento/freebsd-11", nil).with(:@synctype, "disabled"),
 
   PTMachine.new("laravel-homestead", "laravel/homestead", nil),
     # popular Ubuntu-derived dev image; already updated, do not add our stuff by default [might change]
@@ -115,6 +126,12 @@ def add_packaging_cache(ptb, node)
         bsd__nfs_options: ["mapall=#{Process.uid}"],
       } },
       **ptb.mount_args
+  when "rh-family"
+    node.vm.synced_folder local_apt_cache(node.vm.box), "/var/cache/yum/",
+      typed_syncargs: { nfs: {
+        bsd__nfs_options: ["mapall=#{Process.uid}"],
+      } },
+      **ptb.mount_args
   end
 end
 
@@ -124,6 +141,8 @@ Vagrant.configure(2) do |config|
 
     config.vm.define ptb.name, autostart: false do |node|
       node.vm.box = ptb.box
+      provision_env = {}
+
       unless ptb.base_mac.nil?
         node.vm.base_mac = ptb.base_mac
       end
@@ -135,7 +154,7 @@ Vagrant.configure(2) do |config|
         node.ssh.shell = ptb.shell
       end
       unless ptb.vbmodifylist.nil?
-        config.vm.provider :virtualbox do |vb|
+        node.vm.provider :virtualbox do |vb|
           ptb.vbmodifylist.each do |item, value|
             vb.customize ["modifyvm", :id, item, value]
           end
@@ -143,22 +162,41 @@ Vagrant.configure(2) do |config|
       end
 
       node.vm.network "private_network", ip: private_network_ip(machine_index)
+      node.vm.usable_port_range = index_to_usable_port_range(machine_index)
+
+      if system("not_at_home")
+        node.vm.provision "shell", inline: "touch /tmp/am_not_at_home", name: "Not At Home"
+      else
+        node.vm.provision "shell", inline: "touch /tmp/am_at_home", name: "At Home"
+        provision_env['http_proxy'] = HOME_PROXY
+      end
 
       node.vm.synced_folder ".", "/vagrant", **ptb.mount_args
       add_packaging_cache(ptb, node)
-
-      if system("not_at_home")
-        config.vm.provision "shell", inline: "touch /tmp/am_not_at_home", name: "Not At Home"
-      else
-        config.vm.provision "shell", inline: "touch /tmp/am_at_home", name: "At Home"
+      # my Ruby/Vagrant knowledge is too weak to get this in a usable form from node.ssh.username
+      # (I just see an anonymous Object)
+      unless ptb.ssh_username.nil?
+        provision_env['PT_VAGRANT_USER'] = ptb.ssh_username
       end
 
       unless ptb.ostype.nil?
-        config.vm.provision "shell", path: "#{ENV['HOME']}/etc/vagrant/ptlocal.#{ptb.ostype}.sh", name: "pennocktech-local"
+        ptlocal = Pathname.new(ENV['HOME']).join('etc', 'vagrant', "ptlocal.#{ptb.ostype}.sh")
+        node.vm.provision "shell", path: ptlocal.to_s, env: provision_env, name: "pennocktech-local" if ptlocal.exist?
       end
 
       %w(.vimrc .zshrc).each do |fn|
-        config.vm.provision "file", source: "~/.personal/reduced/#{fn}", destination: fn
+        node.vm.provision "file", source: "~/.personal/reduced/#{fn}", destination: fn
+      end
+
+      ENV.fetch('PT_BUILD_ASSETS', '').split.each do |asset|
+        node.vm.provision "file", source: asset, destination: "/tmp/" + Pathname.new(asset).basename.to_s
+      end
+
+      ENV.fetch('PT_BUILD_SCRIPTS', '').split.each do |script|
+        node.vm.provision "shell",
+          path: "#{ENV['HOME']}/etc/vagrant/#{script}",
+          env: provision_env,
+          name: "build-#{script}"
       end
 
     end # config.vm.define using node as iteration variable
