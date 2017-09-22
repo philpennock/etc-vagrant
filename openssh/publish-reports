@@ -1,0 +1,14 @@
+#!/usr/bin/env zsh -f
+set -eu
+
+readonly progname="${0:t}"
+warn() { printf >&2 "%s: %s\n" "$progname" "$*"; }
+die() { warn "$@"; exit 1; }
+readonly script_dir="${0:A:h}"
+
+readonly log_dir="${script_dir}/logs/"
+
+args=( -rclv --chmod=u=rwX,go=rX )
+[[ -n "${PT_NUKE_STALE_DESTRUCTIVE:-}" ]] && args+=( --delete )
+
+rsync "${args[@]}" "$log_dir" tower:www/openssh-testing/./

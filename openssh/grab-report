@@ -1,0 +1,62 @@
+#!/usr/bin/env zsh -f
+set -eu
+
+readonly progname="${0:t}"
+warn() { printf >&2 "%s: %s\n" "$progname" "$*"; }
+die() { warn "$@"; exit 1; }
+readonly script_dir="${0:A:h}"
+
+if [[ $# -eq 0 ]]; then
+  warn "not given any machine names, just rebuilding index"
+fi
+
+. "${script_dir}/Version.sh"
+
+readonly log_dir="${script_dir}/logs/SNAP-${SNAPDATE:?}"
+readonly WORKDIR="$HOME/etc/vagrant/stub"
+readonly tmpindex='index.html.n'
+readonly indexfn='public.shtml'  # deoh, local site reasons
+
+mkdir -pv "$log_dir"
+
+cd "$WORKDIR"
+for MACHINE
+do
+  vagrant ssh "${MACHINE:?}" -- cat /tmp/openssh-output-log.txt > "${log_dir}/${MACHINE:?}.txt"
+done
+
+make_page() {
+  local title="$1"
+  local suffix="$2"
+  local entry
+  shift 2
+  cat > "$tmpindex" <<EOINDEXHEAD
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body>
+<h1>${title}</h1>
+<ul>
+EOINDEXHEAD
+  for entry
+  do
+    printf >> "$tmpindex" "  <li><a href='%s%s'>%s</a></li>\n" "$entry" "$suffix" "$entry"
+  done
+  cat >> "$tmpindex" <<EOINDEXTAIL
+</ul>
+</body></html>
+EOINDEXTAIL
+  mv -f "./$tmpindex" "./${indexfn}"
+  ls -ld "${indexfn:A}"
+}
+
+cd "$log_dir"
+make_page "OpenSSH Snapshot BuildLogs: ${SNAPDATE}" '' *.txt
+
+cd ..
+make_page "OpenSSH Snapshot BuildLogs" '/' *(/)
+

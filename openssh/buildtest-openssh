@@ -1,0 +1,39 @@
+#!/usr/bin/env zsh -f
+set -eu
+
+# We're a sub-directory of ~/etc/vagrant, which is where my library of Vagrant
+# stuff libs.
+#
+# The "stub", really supposed to be be just to bring up bare machines, and give
+# me a coherent list of boxes to keep up-to-date, can be re-used to build
+# software.  Oops.
+#
+# The stub Vagrantfile explicitly pulls in items in $PT_BUILD_SCRIPTS as
+# relative to ~/etc/vagrant.
+
+# zsh because dealing with abspath otherwise is a PITA.  :A is wonderful.
+
+readonly progname="${0:t}"
+die() { printf >&2 "%s: %s\n" "$progname" "$*"; exit 1; }
+readonly script_dir="${0:A:h}"
+
+# Provides SNAPDATE
+. "${script_dir}/Version.sh"
+
+readonly SNAPBALL="openssh-SNAP-${SNAPDATE:?}.tar.gz"
+readonly WORKDIR="$HOME/etc/vagrant/stub"
+readonly this_dir_shortname="${script_dir:t}"
+readonly generated_build_script="openssh-snapshot-$SNAPDATE.sh"
+
+set -x
+
+export PT_BUILD_ASSETS="$HOME/Downloads/$SNAPBALL"
+export PT_BUILD_SCRIPTS="$this_dir_shortname/$generated_build_script"
+
+cd "$script_dir"
+[[ -f "./$generated_build_script" ]] || \
+  sed -e 's/XXX_SNAPBALL_XXX/'"$SNAPBALL"'/g' < openssh-snapshot-basetemplate > "./$generated_build_script"
+chmod 0755 "./$generated_build_script"
+
+cd "$WORKDIR"
+exec vagrant "$@"

@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh -f
+set -eu
+
+# This is bogus, should just make it a git repo
+
+readonly progname="${0:t}"
+warn() { printf >&2 "%s: %s\n" "$progname" "$*"; }
+die() { warn "$@"; exit 1; }
+readonly script_dir="${0:A:h}"
+
+readonly log_dir="${script_dir}/logs/"
+
+mkdir -pv "$log_dir"
+
+rsync -rclv tower:www/openssh-testing/ "$log_dir/"
