@@ -12,10 +12,13 @@ might reasonably care about, to populate `vagrant box list` and be able to
 bring up any one of those boxes as a near-empty image.
 
 I hit issues with one OS's official RelEng images being Rather Defective and
-added lots of workarounds, as part of being able to have the boxes be tunable.
+added lots of workarounds, via tunable attributes on the object defining the
+machine we want to bring up.
 
 Then there was a call for testing snapshots of OpenSSH, coming up to a new
-release, and I decided to use what I had and automated it.
+release, and I decided to use what I had lying around.  I repeatedly automated
+things until it was just `all.sh` to test on each of a bunch of machines and
+pull back the configure/make report to a local directory.
 
 **Note**: both the scripts and the `Vagrantfile` assume that a command called
 `not_at_home` exists somewhere in `$PATH`.
@@ -39,7 +42,36 @@ distribution/release pairing, so some caution might be needed if extending the
 list of D/R for which Vagrant images are wanted.
 
 
-## Stub
+## `simpler/`
+
+If you're not familiar with Vagrant but can program, start here; it's not the
+simplest Vagrantfile (empty, or about three lines) but shows the core of
+what's in `stub/` in a reduced way.
+
+We define a Ruby class to hold our per-machine data; a list of instances of
+that class, then we reference the Vagrant object to define a node for each
+instance in the list.  We set a couple of environment variables and reference
+a provisioning script, if it exists.
+
+```
+vagrant help
+vagrant status
+vagrant up centos-7
+vagrant ssh centos-7
+#...
+vagrant destroy centos-7
+```
+
+That should be enough to get started with understanding what's going on with
+Vagrant and the general style of what we're doing in `stub/`.  Stub has just
+... "grown" a lot.  From something which started out very much like
+`simpler/`.
+
+If you change provisioning scripts when a machine is already up, use the
+`provision` sub-command to re-run them.
+
+
+## `stub/`
 
 An organically-grown `Vagrantfile` which shows what you can do when your DSL
 is Ruby.  This has good and bad sides.

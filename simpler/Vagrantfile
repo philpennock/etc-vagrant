@@ -1,0 +1,32 @@
+# Not the very simplest Vagrantfile, but a fast loop without all the complexity
+# of 'stub'.
+
+class PTMachine
+  attr_reader :name, :box, :ostype, :ssh_username
+  def initialize(name, box, ostype, ssh_username)
+    @name = name
+    @box = box  # https://app.vagrantup.com/boxes/search
+    @ostype = ostype
+    @ssh_username = ssh_username  # usually is 'vagrant'; nil implies this
+  end
+end
+
+PTMACHINES = [
+  PTMachine.new("xenial", "ubuntu/xenial64", "debian-family", "ubuntu"),
+  PTMachine.new("centos-7", "bento/centos-7", "rh-family", nil),
+]
+
+Vagrant.configure(2) do |config|
+  PTMACHINES.each do |ptb|
+    config.vm.define ptb.name, autostart: false do |node|
+      node.vm.box = ptb.box
+
+      provision_env = {}
+      provision_env['http_proxy'] = ENV['http_proxy'] if ENV.has_key?('http_proxy')
+      provision_env['PT_VAGRANT_USER'] = ptb.ssh_username unless ptb.ssh_username.nil?
+
+      ptlocal = Pathname.new(ENV['HOME']).join('etc', 'vagrant', "ptlocal.#{ptb.ostype}.sh")
+      node.vm.provision "shell", path: ptlocal.to_s, env: provision_env, name: "pennocktech-local" if ptlocal.exist?
+    end
+  end
+end
