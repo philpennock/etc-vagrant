@@ -16,6 +16,7 @@ readonly log_dir="${script_dir}/logs/SNAP-${SNAPDATE:?}"
 readonly WORKDIR="$HOME/etc/vagrant/stub"
 readonly tmpindex='index.html.n'
 readonly indexfn='public.shtml'  # deoh, local site reasons
+readonly generated_build_script="${script_dir}/openssh-snapshot-$SNAPDATE.sh"
 
 mkdir -pv "$log_dir"
 
@@ -44,7 +45,14 @@ make_page() {
 EOINDEXHEAD
   for entry
   do
-    printf >> "$tmpindex" "  <li><a href='%s%s'>%s</a></li>\n" "$entry" "$suffix" "$entry"
+    case $entry in
+    (--)
+      printf >> "$tmpindex" "</ul><hr><ul>\n"
+      ;;
+    (*)
+      printf >> "$tmpindex" "  <li><a href='%s%s'>%s</a></li>\n" "$entry" "$suffix" "$entry"
+      ;;
+    esac
   done
   cat >> "$tmpindex" <<EOINDEXTAIL
 </ul>
@@ -55,7 +63,8 @@ EOINDEXTAIL
 }
 
 cd "$log_dir"
-make_page "OpenSSH Snapshot BuildLogs: ${SNAPDATE}" '' *.txt
+cp "$generated_build_script" "./${generated_build_script:t:r}.text"
+make_page "OpenSSH Snapshot BuildLogs: ${SNAPDATE}" '' *.txt -- *.text
 
 cd ..
 make_page "OpenSSH Snapshot BuildLogs" '/' *(/)
