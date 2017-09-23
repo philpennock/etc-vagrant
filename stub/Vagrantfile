@@ -96,7 +96,7 @@ PTMACHINES = [
 ]
 
 # Derived from https://gist.github.com/juanje/3797297
-def local_apt_cache(basebox_name)
+def local_cache_for_guest(basebox_name)
   # We did take a second parameter, 'venv', passed from node.vm.env but that
   # led to Vagrant errors, "The following settings shouldn't exist: env"; looks
   # like referencing it auto-vivifies it too early.
@@ -121,13 +121,13 @@ def add_packaging_cache(ptb, node)
   end
   case ptb.ostype
   when "debian-family"
-    node.vm.synced_folder local_apt_cache(node.vm.box), "/var/cache/apt/archives/",
+    node.vm.synced_folder local_cache_for_guest(node.vm.box), "/var/cache/apt/archives/",
       typed_syncargs: { nfs: {
         bsd__nfs_options: ["mapall=#{Process.uid}"],
       } },
       **ptb.mount_args
   when "rh-family"
-    node.vm.synced_folder local_apt_cache(node.vm.box), "/var/cache/yum/",
+    node.vm.synced_folder local_cache_for_guest(node.vm.box), "/var/cache/yum/",
       typed_syncargs: { nfs: {
         bsd__nfs_options: ["mapall=#{Process.uid}"],
       } },
@@ -187,8 +187,10 @@ Vagrant.configure(2) do |config|
         node.vm.provision "shell", path: ptlocal.to_s, env: provision_env, name: "pennocktech-local" if ptlocal.exist?
       end
 
-      %w(.vimrc .zshrc).each do |fn|
-        node.vm.provision "file", source: "~/.personal/reduced/#{fn}", destination: fn
+      if Pathname.new(ENV['HOME']).join('.personal', 'reduced').exists?
+        %w(.vimrc .zshrc).each do |fn|
+          node.vm.provision "file", source: "~/.personal/reduced/#{fn}", destination: fn
+        end
       end
 
       ENV.fetch('PT_BUILD_ASSETS', '').split.each do |asset|
