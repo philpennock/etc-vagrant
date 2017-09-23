@@ -170,6 +170,9 @@ Vagrant.configure(2) do |config|
         node.vm.provision "shell", inline: "touch /tmp/am_at_home", name: "At Home"
         provision_env['http_proxy'] = HOME_PROXY
       end
+      # HTTP proxy in _our_ environment takes precendence over any home HTTP proxy, pass that in env
+      # Note that the ptlocal setup uses an apt-cacher-ng setup and that remains, if at home
+      provision_env['http_proxy'] = ENV['http_proxy'] if ENV.has_key?('http_proxy')
 
       node.vm.synced_folder ".", "/vagrant", **ptb.mount_args
       add_packaging_cache(ptb, node)
