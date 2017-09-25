@@ -1,4 +1,4 @@
 #!/bin/echo source me
 
-readonly SNAPDATE='20170923'
+readonly SNAPDATE='20170925'
 
