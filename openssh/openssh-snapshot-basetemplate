@@ -14,6 +14,11 @@ elif [ -f /etc/yum.conf ] || [ -d /etc/yum ]; then
 	yum -y install yum-utils
 	yum -y groupinstall 'Development Tools'
 	yum-builddep -y openssh
+	case $(rpm -qa --queryformat '%{VERSION}\n' openssl-devel) in
+	1.1.*)
+		yum -y install --allowerasing compat-openssl10-devel
+		;;
+	esac
 	)
 elif [ -f /etc/pacman.conf ]; then
 	(
