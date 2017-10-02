@@ -135,6 +135,18 @@ def add_packaging_cache(ptb, node)
   end
 end
 
+# https://stackoverflow.com/a/5471032/105927 by "mislav"
+def which(cmd)
+  exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
+  ENV['PATH'].split(File::PATH_SEPARATOR).each do |path|
+    exts.each { |ext|
+      exe = File.join(path, "#{cmd}#{ext}")
+      return exe if File.executable?(exe) && !File.directory?(exe)
+    }
+  end
+  return nil
+end
+
 Vagrant.configure(2) do |config|
   PTMACHINES.each_with_index do |ptb, machine_index|
     # NB: Synced folders are done before provision scripts, independent of order defined here.
@@ -164,7 +176,9 @@ Vagrant.configure(2) do |config|
       node.vm.network "private_network", ip: private_network_ip(machine_index)
       node.vm.usable_port_range = index_to_usable_port_range(machine_index)
 
-      if system("not_at_home")
+      if which("not_at_home").nil?
+        node.vm.provision "shell", inline: "touch /tmp/home-status-unknown", name: "To be home or not to be home"
+      elsif system("not_at_home")
         node.vm.provision "shell", inline: "touch /tmp/am_not_at_home", name: "Not At Home"
       else
         node.vm.provision "shell", inline: "touch /tmp/am_at_home", name: "At Home"

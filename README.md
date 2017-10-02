@@ -20,13 +20,6 @@ release, and I decided to use what I had lying around.  I repeatedly automated
 things until it was just `all.sh` to test on each of a bunch of machines and
 pull back the configure/make report to a local directory.
 
-**Note**: both the scripts and the `Vagrantfile` assume that a command called
-`not_at_home` exists somewhere in `$PATH`.
-I use this script, which exits true when "not at home", to guard some proxy
-configuration matching in my `~/.ssh/config` and a few other places.  I
-haven't yet made it optional; rip it out, or drop it in path as a symlink to
-your `true` binary.
-
 
 ## Top Directory
 
@@ -98,6 +91,11 @@ area, _probably_ `~/.vagrant.d/cache`.
 
 In addition, if `http_proxy` is a current environment variable when you invoke
 Vagrant, then the value will be propagated into the guest.
+
+If you have a command in your path called `not_at_home` and it returns false,
+then you might experience breakage as the install scripts for apt-based
+systems try to configure an HTTP proxy of `http://cheddar.lan:3142`, which is
+specific to my environment.  For me, that's an `apt-cacher-ng` instance.
 
 
 ## openssh
