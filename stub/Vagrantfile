@@ -93,6 +93,8 @@ PTMACHINES = [
       ["--nictype1", "virtio"],
       ["--nictype2", "virtio"],
     ]),
+
+  PTMachine.new("slackware14.2", "crawford/slackware-14.2", nil),
 ]
 
 # Derived from https://gist.github.com/juanje/3797297
