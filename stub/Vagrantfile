@@ -12,9 +12,14 @@ HOME_PROXY = 'http://192.168.120.21:3128/'
 
 class PTMachine
   attr_reader :name, :box, :ostype,
-    :base_mac, :boot_timeout, :shell, :vbmodifylist,
+    :vbmodifylist,
     :synctype, :syncargs, :typed_syncargs,
     :ssh_username
+  @@copy_straight_attrs_vm = :base_mac, :boot_timeout, :box_version
+  @@copy_straight_attrs_ssh = :shell, :sudo_command
+  attr_reader *@@copy_straight_attrs_vm
+  attr_reader *@@copy_straight_attrs_ssh
+
   def initialize(name, box, ostype)
     @name = name
     @box = box  # https://app.vagrantup.com/boxes/search
@@ -41,7 +46,7 @@ class PTMachine
       end
     else
       a.merge! @syncargs unless @syncargs.nil?
-      a.merge! @typed_syncargs[@synctype] if @typed_syncargs.has_key?(@synctype)
+      a.merge! @typed_syncargs[@synctype] if (not @typed_syncargs.nil?) and @typed_syncargs.has_key?(@synctype)
     end
     return a
   end
@@ -95,6 +100,14 @@ PTMACHINES = [
     ]),
 
   PTMachine.new("slackware14.2", "crawford/slackware-14.2", nil),
+
+  PTMachine.new("openbsd6.2", "SierraX/openbsd-6.2", nil)
+    .with(:@box_version, "1.0.0")
+    .with(:@sudo_command, "doas -n env %c")
+    .with(:@synctype, "rsync")
+    .with(:@syncargs, {
+      rsync__rsync_path: "doas -n env rsync",
+        }),
 ]
 
 # Derived from https://gist.github.com/juanje/3797297
@@ -157,16 +170,19 @@ Vagrant.configure(2) do |config|
       node.vm.box = ptb.box
       provision_env = {}
 
-      unless ptb.base_mac.nil?
-        node.vm.base_mac = ptb.base_mac
-      end
-      unless ptb.boot_timeout.nil?
-        node.vm.boot_timeout = ptb.boot_timeout
-      end
-      # my ruby meta-programming is near non-existent, or that would already be a loop using a string attr name
-      unless ptb.shell.nil?
-        node.ssh.shell = ptb.shell
-      end
+      PTMachine.class_variable_get(:@@copy_straight_attrs_vm).each { |attr|
+        atattr = '@' + attr.to_s
+        if ptb.instance_variable_defined?(atattr)
+          node.vm.instance_variable_set(atattr, ptb.instance_variable_get(atattr))
+        end
+      }
+      PTMachine.class_variable_get(:@@copy_straight_attrs_ssh).each { |attr|
+        atattr = '@' + attr.to_s
+        if ptb.instance_variable_defined?(atattr)
+          node.ssh.instance_variable_set(atattr, ptb.instance_variable_get(atattr))
+        end
+      }
+
       unless ptb.vbmodifylist.nil?
         node.vm.provider :virtualbox do |vb|
           ptb.vbmodifylist.each do |item, value|
