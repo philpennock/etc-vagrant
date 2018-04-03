@@ -29,6 +29,9 @@ Acquire::https::Proxy::public-packages.pennock.tech "DIRECT";
 EOPROXY
 unset pf
 
+# buster appears to not include a gnupg by default?
+gpg --version >/dev/null 2>&1 || pt_apt_get install "${PT_GNUPG_VARIANT:-gnupg2}"
+
 pt_apt_get install apt-transport-https
 
 apt-key add - <<'EOKEY'
@@ -66,8 +69,11 @@ EOKEY
 
 distributor="$(lsb_release -si | tr A-Z a-z)"
 codename="$(lsb_release -sc)"
-cat > /etc/apt/sources.list.d/pennocktech.list <<EOSRC
+
+if [ -z "${PT_DISABLE_PTREPOS:-}" ]; then
+  cat > /etc/apt/sources.list.d/pennocktech.list <<EOSRC
 deb https://public-packages.pennock.tech/pt/${distributor}/${codename}/ ${codename} main
 EOSRC
+fi
 
 pt_apt_get update

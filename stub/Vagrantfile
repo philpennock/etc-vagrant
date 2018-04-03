@@ -14,7 +14,7 @@ class PTMachine
   attr_reader :name, :box, :ostype,
     :vbmodifylist,
     :synctype, :syncargs, :typed_syncargs,
-    :ssh_username
+    :ssh_username, :env_additions
   @@copy_straight_attrs_vm = :base_mac, :boot_timeout, :box_version
   @@copy_straight_attrs_ssh = :shell, :sudo_command
   attr_reader *@@copy_straight_attrs_vm
@@ -80,6 +80,13 @@ PTMACHINES = [
   PTMachine.new("bento-debian9.1", "bento/debian-9.1", "debian-family"),
   PTMachine.new("bento-fedora26", "bento/fedora-26", "rh-family"),
   PTMachine.new("bento-freebsd11", "bento/freebsd-11", nil).with(:@synctype, "disabled"),
+
+  PTMachine.new("buster-daily", "fujimakishouten/debian-buster64", "debian-family")
+    .with(:@synctype, "nfs")
+    .with(:@env_additions, [
+      ["PT_DISABLE_PTREPOS", "true"],
+    ]),
+    # fails on apt lock at initial start, on gnupg missing, on PT not having packages (known)
 
   PTMachine.new("laravel-homestead", "laravel/homestead", nil),
     # popular Ubuntu-derived dev image; already updated, do not add our stuff by default [might change]
@@ -212,6 +219,12 @@ Vagrant.configure(2) do |config|
       # (I just see an anonymous Object)
       unless ptb.ssh_username.nil?
         provision_env['PT_VAGRANT_USER'] = ptb.ssh_username
+      end
+
+      unless ptb.env_additions.nil?
+        ptb.env_additions.each do |envkey, envval|
+          provision_env[envkey] = envval
+        end
       end
 
       unless ptb.ostype.nil?
