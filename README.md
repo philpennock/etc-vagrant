@@ -35,6 +35,23 @@ distribution/release pairing, so some caution might be needed if extending the
 list of D/R for which Vagrant images are wanted.
 
 
+## `auto/`
+
+If you just want to bring up a box ASAP, this is the way.
+
+This is a very thin shim around defining a simple box based purely on an
+environment variable, `PT_VAGRANT_BOX`, providing the box name.
+
+You can use a few other variables to tune it further, see the file.
+
+But at the simplest usage:
+
+    PT_VAGRANT_BOX=debian/buster64 vagrant up
+
+will download the box and run it, with a VM named `buster64`, and running a
+Debian-specific tuning script `ptlocal.debian-family.sh`.
+
+
 ## `simpler/`
 
 If you're not familiar with Vagrant but can program, start here; it's not the

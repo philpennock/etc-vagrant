@@ -1,0 +1,29 @@
+# Vagrantfile which exists as a wrapper to be driven by env vars.
+
+box = ENV['PT_VAGRANT_BOX']
+if ENV.has_key?('PT_VAGRANT_NAME')
+  name = ENV['PT_VAGRANT_NAME']
+else
+  name = box.split('/')[-1]
+end
+
+if ENV.has_key?('PT_VAGRANT_OSFAMILY')
+  osfamily = ENV['PT_VAGRANT_OSFAMILY']
+elsif ['debian', 'ubuntu'].any? { |debos| box.include?(debos) }
+  osfamily = 'debian-family'
+else
+  osfamily = 'unknown'
+end
+
+
+Vagrant.configure(2) do |config|
+  config.vm.define name do |node|
+    node.vm.box = box
+
+    provision_env = {}
+    provision_env['http_proxy'] = ENV['http_proxy'] if ENV.has_key?('http_proxy')
+
+    ptlocal = Pathname.new(ENV['HOME']).join('etc', 'vagrant', "ptlocal.#{osfamily}.sh")
+    node.vm.provision "shell", path: ptlocal.to_s, env: provision_env, name: "pennocktech-local" if ptlocal.exist?
+  end
+end
