@@ -74,6 +74,7 @@ PTMACHINES = [
   PTMachine.new("xenial", "ubuntu/xenial64", "debian-family").with(:@ssh_username, "ubuntu"),
   PTMachine.new("arch", "archlinux/archlinux", nil),
   PTMachine.new("netbsd7", "netbsd/NetBSD-7.0", nil),
+  PTMachine.new("netbsd8", "NetBSD/NetBSD-8.0", nil),
 
   # Bento boxes maintained by Chef and officially supported by Hashicorp
   PTMachine.new("bento-centos7", "bento/centos-7", "rh-family"),
